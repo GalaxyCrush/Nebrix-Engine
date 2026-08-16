@@ -273,3 +273,23 @@ Nebrix-Engine/
   `drawCalls=1`, camera follow + culling working (quad count varies as the view pans).
 - Open items unchanged: real Wayland fix (`nvidia_drm.modeset` check), commits held per user.
 - Next action: Phase 2 (input abstraction, ECS, physics, tilemaps, scenes).
+
+### 2026-08-16 — Phase 2, Block 1: Input abstraction (polling + action mapping)
+- New `Core/Input.h` + `Platform/Input.cpp`: backend-agnostic polling layer over GLFW.
+  - `Key` enum mirrors GLFW codes (ASCII for letters/digits; the values are an
+    implementation detail — apps use `Key::A`, `Key::Left`, ...). `MouseButton` likewise.
+  - Queries: `isKeyDown`, `isKeyDownAny`, `isMouseDown`, `mousePosition()` /
+    `mouseDelta()` (framebuffer px, y-down — same space as Camera2D), `setMouseCapture`.
+  - Action mapping: `mapAction("MoveLeft", {Key::A, Key::Left})` + `isActionDown("MoveLeft")`
+    — game logic binds to semantic actions, never to raw keys.
+  - `translateKey()` is the single translation point (also used by the event layer).
+- `Window` integration: binds the GLFW window in `init()`, unbinds in `shutdown()`,
+  `pollEvents()` also pumps `Input::beginFrame()` (cursor + delta per frame); key
+  events now carry `Key` (via `translateKey`) instead of raw GLFW codes.
+- Sandbox migrated: `fixedUpdateFn`/`updateFn` use actions (Move*/ToggleCulling/ZoomIn/Out);
+  GLFW includes and `keyDown()` helper removed from `Main.cpp` — the app no longer sees GLFW.
+- Verified: Debug + Release build clean (0 warnings), sandbox runs, window presents
+  (exact colors via grim+magick), fps=60, no errors/warnings in logs.
+- Open items unchanged: real Wayland fix (`nvidia_drm.modeset`), commits held per user.
+- Next action: Phase 2, Block 2 — own ECS (sparse sets: Transform, Velocity, Sprite,
+  Player; system iteration); migrate player/tiles gradually.

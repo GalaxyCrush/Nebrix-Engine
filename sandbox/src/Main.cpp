@@ -1,6 +1,7 @@
 #include <Nebrix/Core/Assert.h>
 #include <Nebrix/Core/Events.h>
 #include <Nebrix/Core/GameLoop.h>
+#include <Nebrix/Core/Input.h>
 #include <Nebrix/Core/Log.h>
 #include <Nebrix/Math/Math.h>
 #include <Nebrix/Platform/Window.h>
@@ -8,9 +9,6 @@
 #include <Nebrix/Renderer/Renderer.h>
 #include <Nebrix/Renderer/Shader.h>
 #include <Nebrix/Renderer/TextureAtlas.h>
-
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 
 #include <algorithm>
 #include <array>
@@ -20,60 +18,76 @@
 
 using namespace nbx;
 
-namespace {
+namespace
+{
 
-constexpr uint32_t kWorldTiles = 100;  // 100x100 grid = 10,000 tiles
-constexpr float kTileSize = 64.0f;
-constexpr uint32_t kAtlasCells = 4;  // 4x4 sprite sheet
+    constexpr uint32_t kWorldTiles = 100; // 100x100 grid = 10,000 tiles
+    constexpr float kTileSize = 64.0f;
+    constexpr uint32_t kAtlasCells = 4; // 4x4 sprite sheet
 
-constexpr std::array<uint32_t, 16> kTileColors = {
-    0xFF40342E, 0xFF52423B, 0xFF5E4C43, 0xFF6A564C,
-    0xFFBBBC8F, 0xFFD0C088, 0xFFC1A181, 0xFFAC815E,
-    0xFF6A61BF, 0xFF7087D0, 0xFF8BCBEB, 0xFF8CBEA3,
-    0xFFAD8EB4, 0xFF80726B, 0xFFAFA39C, 0xFFDBD5D1,
-};
+    constexpr std::array<uint32_t, 16> kTileColors = {
+        0xFF40342E,
+        0xFF52423B,
+        0xFF5E4C43,
+        0xFF6A564C,
+        0xFFBBBC8F,
+        0xFFD0C088,
+        0xFFC1A181,
+        0xFFAC815E,
+        0xFF6A61BF,
+        0xFF7087D0,
+        0xFF8BCBEB,
+        0xFF8CBEA3,
+        0xFFAD8EB4,
+        0xFF80726B,
+        0xFFAFA39C,
+        0xFFDBD5D1,
+    };
 
-// Procedurally builds a 4x4 tile sheet with borders so cells are visible.
-Texture makeTileAtlasTexture() {
-    constexpr uint32_t cell = 64;
-    constexpr uint32_t size = cell * kAtlasCells;
-    std::vector<uint32_t> pixels(size * size);
-    for (uint32_t cy = 0; cy < kAtlasCells; ++cy) {
-        for (uint32_t cx = 0; cx < kAtlasCells; ++cx) {
-            const uint32_t color = kTileColors[cy * kAtlasCells + cx];
-            for (uint32_t y = 0; y < cell; ++y) {
-                for (uint32_t x = 0; x < cell; ++x) {
-                    uint32_t pixel = color;
-                    if (x < 4 || y < 4 || x >= cell - 4 || y >= cell - 4)
-                        pixel = 0xFF1C1511;
-                    pixels[(cy * cell + y) * size + cx * cell + x] = pixel;
+    // Procedurally builds a 4x4 tile sheet with borders so cells are visible.
+    Texture makeTileAtlasTexture()
+    {
+        constexpr uint32_t cell = 64;
+        constexpr uint32_t size = cell * kAtlasCells;
+        std::vector<uint32_t> pixels(size * size);
+        for (uint32_t cy = 0; cy < kAtlasCells; ++cy)
+        {
+            for (uint32_t cx = 0; cx < kAtlasCells; ++cx)
+            {
+                const uint32_t color = kTileColors[cy * kAtlasCells + cx];
+                for (uint32_t y = 0; y < cell; ++y)
+                {
+                    for (uint32_t x = 0; x < cell; ++x)
+                    {
+                        uint32_t pixel = color;
+                        if (x < 4 || y < 4 || x >= cell - 4 || y >= cell - 4)
+                            pixel = 0xFF1C1511;
+                        pixels[(cy * cell + y) * size + cx * cell + x] = pixel;
+                    }
                 }
             }
         }
+        Texture texture;
+        texture.create(size, size, pixels.data());
+        return texture;
     }
-    Texture texture;
-    texture.create(size, size, pixels.data());
-    return texture;
-}
 
-bool keyDown(GLFWwindow* window, int key) {
-    return glfwGetKey(window, key) == GLFW_PRESS;
-}
-
-// Resolves asset paths relative to the repository root, regardless of the CWD.
-// The executable lives at <repo>/build/sandbox/ (or build-release/sandbox/).
-std::filesystem::path assetPath(const std::string& relative) {
-    std::error_code error;
-    const auto exeDir = std::filesystem::read_symlink("/proc/self/exe", error).parent_path();
-    if (error)
-        return relative;
-    const auto repoRoot = exeDir.parent_path().parent_path();
-    return repoRoot / "sandbox" / "assets" / relative;
-}
+    // Resolves asset paths relative to the repository root, regardless of the CWD.
+    // The executable lives at <repo>/build/sandbox/ (or build-release/sandbox/).
+    std::filesystem::path assetPath(const std::string &relative)
+    {
+        std::error_code error;
+        const auto exeDir = std::filesystem::read_symlink("/proc/self/exe", error).parent_path();
+        if (error)
+            return relative;
+        const auto repoRoot = exeDir.parent_path().parent_path();
+        return repoRoot / "sandbox" / "assets" / relative;
+    }
 
 } // namespace
 
-int main() {
+int main()
+{
     Log::setLevel(LogLevel::Info);
 
     // TODO(nvidia-wayland): force X11 until the NVIDIA EGL Wayland presentation bug
@@ -108,19 +122,28 @@ int main() {
     TextureAtlas atlas;
     atlas.create(makeTileAtlasTexture(), kAtlasCells, kAtlasCells);
 
+    // Action mapping: the game logic refers to semantic actions, not raw keys.
+    Input::mapAction("MoveLeft", {Key::A, Key::Left});
+    Input::mapAction("MoveRight", {Key::D, Key::Right});
+    Input::mapAction("MoveUp", {Key::W, Key::Up});
+    Input::mapAction("MoveDown", {Key::S, Key::Down});
+    Input::mapAction("ToggleCulling", {Key::C});
+    Input::mapAction("ZoomIn", {Key::Equal, Key::KeyPadAdd});
+    Input::mapAction("ZoomOut", {Key::Minus, Key::KeyPadSubtract});
+
     GameLoop loop;
     loop.setFixedTimestep(1.0 / 30.0);
     loop.setFrameCap(60);
 
-    window.setEventCallback([&](const Event& event) {
+    window.setEventCallback([&](const Event &event)
+                            {
         if (event.type == Event::Type::Quit) {
             loop.stop();
         } else if (event.type == Event::Type::WindowResized) {
             Renderer::setViewport(event.data1, event.data2);
             camera.setViewportSize(static_cast<uint32_t>(event.data1),
                                    static_cast<uint32_t>(event.data2));
-        }
-    });
+        } });
 
     math::vec2 playerPosition(64.0f, 64.0f);
     math::vec2 playerPrevious = playerPosition;
@@ -128,15 +151,15 @@ int main() {
     constexpr float kPlayerSpeed = 320.0f;
     constexpr float kWorldSize = kWorldTiles * kTileSize;
 
-    loop.setFixedUpdateFn([&](double fixedDt) {
+    loop.setFixedUpdateFn([&](double fixedDt)
+                          {
         const float dt = static_cast<float>(fixedDt);
         playerPrevious = playerPosition;
 
-        GLFWwindow* const w = window.handle();
-        float dx = (keyDown(w, GLFW_KEY_D) || keyDown(w, GLFW_KEY_RIGHT) ? 1.0f : 0.0f) -
-                   (keyDown(w, GLFW_KEY_A) || keyDown(w, GLFW_KEY_LEFT) ? 1.0f : 0.0f);
-        float dy = (keyDown(w, GLFW_KEY_S) || keyDown(w, GLFW_KEY_DOWN) ? 1.0f : 0.0f) -
-                   (keyDown(w, GLFW_KEY_W) || keyDown(w, GLFW_KEY_UP) ? 1.0f : 0.0f);
+        float dx = (Input::isActionDown("MoveRight") ? 1.0f : 0.0f) -
+                   (Input::isActionDown("MoveLeft") ? 1.0f : 0.0f);
+        float dy = (Input::isActionDown("MoveDown") ? 1.0f : 0.0f) -
+                   (Input::isActionDown("MoveUp") ? 1.0f : 0.0f);
 
         math::vec2 direction(dx, dy);
         const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
@@ -146,39 +169,38 @@ int main() {
         }
         playerPosition += direction * kPlayerSpeed * dt;
         playerPosition.x = std::clamp(playerPosition.x, 32.0f, kWorldSize - 32.0f);
-        playerPosition.y = std::clamp(playerPosition.y, 32.0f, kWorldSize - 32.0f);
-    });
+        playerPosition.y = std::clamp(playerPosition.y, 32.0f, kWorldSize - 32.0f); });
 
     bool cullingEnabled = true;
-    if (const char* culling = std::getenv("NEBRIX_CULLING"))
+    if (const char *culling = std::getenv("NEBRIX_CULLING"))
         cullingEnabled = std::string_view(culling) != "0";
     float targetZoom = 1.0f;
     uint64_t frameCounter = 0;
 
-    loop.setUpdateFn([&](double dt) {
+    loop.setUpdateFn([&](double dt)
+                     {
         window.pollEvents();
         if (shader.update(dt)) {
             // Shader reloaded; Renderer keeps using the same Shader object.
             NBX_LOG_INFO("Shader hot-reloaded");
         }
 
-        GLFWwindow* const w = window.handle();
         static bool cWasDown = false;
-        const bool cDown = keyDown(w, GLFW_KEY_C);
+        const bool cDown = Input::isActionDown("ToggleCulling");
         if (cDown && !cWasDown)
             cullingEnabled = !cullingEnabled;
         cWasDown = cDown;
 
-        if (keyDown(w, GLFW_KEY_EQUAL) || keyDown(w, GLFW_KEY_KP_ADD))
+        if (Input::isActionDown("ZoomIn"))
             targetZoom = std::clamp(targetZoom * 1.02f, 0.25f, 4.0f);
-        if (keyDown(w, GLFW_KEY_MINUS) || keyDown(w, GLFW_KEY_KP_SUBTRACT))
+        if (Input::isActionDown("ZoomOut"))
             targetZoom = std::clamp(targetZoom / 1.02f, 0.25f, 4.0f);
 
         camera.setZoom(camera.zoom() + (targetZoom - camera.zoom()) * 0.1f);
-        camera.follow(playerPosition, 8.0f, dt);
-    });
+        camera.follow(playerPosition, 8.0f, dt); });
 
-    loop.setRenderFn([&](const FrameStats& stats) {
+    loop.setRenderFn([&](const FrameStats &stats)
+                     {
         Renderer::clear({0.09f, 0.10f, 0.13f, 1.0f});
         Renderer::beginFrame(camera.viewProjection());
 
@@ -212,8 +234,7 @@ int main() {
             const Renderer::Stats& renderStats = Renderer::stats();
             NBX_LOG_INFO("fps={} quads={} drawCalls={} culling={}", stats.fps,
                          renderStats.quadCount, renderStats.drawCalls, cullingEnabled);
-        }
-    });
+        } });
 
     NBX_LOG_INFO("Starting game loop (move: WASD, zoom: +/- , culling: C)");
     loop.run();

@@ -1,6 +1,7 @@
 add_library(Nebrix STATIC
     src/Core/Log.cpp
     src/Core/GameLoop.cpp
+    src/Platform/Input.cpp
     src/Platform/Window.cpp
     src/Platform/Stb.cpp
     src/Renderer/Shader.cpp
