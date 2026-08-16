@@ -1,0 +1,4 @@
+add_executable(NebrixSandbox src/Main.cpp)
+
+target_link_libraries(NebrixSandbox PRIVATE Nebrix)
+target_compile_options(NebrixSandbox PRIVATE -Wall -Wextra -Wpedantic)
