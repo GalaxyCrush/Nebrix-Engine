@@ -4,10 +4,14 @@ add_library(Nebrix STATIC
     src/ECS/World.cpp
     src/Physics/SpatialHashGrid.cpp
     src/Physics/PhysicsSystem.cpp
+    src/ECS/World.cpp
+    src/Physics/SpatialHashGrid.cpp
+    src/Physics/PhysicsSystem.cpp
     src/Platform/Input.cpp
     src/Platform/Window.cpp
     src/Platform/Stb.cpp
     src/Renderer/Shader.cpp
+    src/Renderer/Animation.cpp
     src/Renderer/Animation.cpp
     src/Renderer/Buffer.cpp
     src/Renderer/Texture.cpp
