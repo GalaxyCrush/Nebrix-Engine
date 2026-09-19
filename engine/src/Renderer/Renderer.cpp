@@ -2,6 +2,7 @@
 
 #include "Nebrix/Core/Log.h"
 #include "Nebrix/Renderer/Buffer.h"
+#include "Nebrix/Renderer/Font.h"
 #include "Nebrix/Renderer/Shader.h"
 #include "Nebrix/Renderer/Texture.h"
 
@@ -240,6 +241,31 @@ void main() {
         if (s_shader != next && s_quadCount > 0)
             flush();
         s_shader = next;
+    }
+
+    void Renderer::drawText(const Font &font, std::string_view text, const math::vec2 &topLeft,
+                            float scale, const math::vec4 &color)
+    {
+        // Glyph bearings are relative to the baseline (stb yoff is negative-up),
+        // so the pen tracks the baseline, one ascent below the block top.
+        float penX = topLeft.x;
+        float baselineY = topLeft.y + font.ascent() * scale;
+        for (char ch : text)
+        {
+            if (ch == '\n')
+            {
+                penX = topLeft.x;
+                baselineY += font.lineHeight() * scale;
+                continue;
+            }
+            const Font::Glyph &g = font.glyph(ch);
+            const math::Transform2D transform = {
+                .position = {penX + (g.offsetX + g.sprite.width * 0.5f) * scale,
+                             baselineY + (g.offsetY + g.sprite.height * 0.5f) * scale},
+                .scale = {g.sprite.width * scale, g.sprite.height * scale}};
+            drawQuad(transform, Sprite{g.sprite.textureId, g.sprite.uv, 0.0f, 0.0f}, color);
+            penX += g.advanceX * scale;
+        }
     }
 
     const Renderer::Stats &Renderer::stats() { return s_stats; }

@@ -26,6 +26,7 @@ namespace nbx
     bool AssetManager::s_initialized = false;
     std::unordered_map<std::string, Texture> AssetManager::s_textures;
     std::unordered_map<std::string, std::unique_ptr<Shader>> AssetManager::s_shaders;
+    std::unordered_map<std::string, std::unique_ptr<Font>> AssetManager::s_fonts;
 
     bool AssetManager::init()
     {
@@ -51,6 +52,7 @@ namespace nbx
     {
         // GL resources must die while the context is alive, so this must run
         // before Window::shutdown.
+        s_fonts.clear();
         s_shaders.clear();
         s_textures.clear();
         s_initialized = false;
@@ -119,6 +121,30 @@ namespace nbx
         }
 
         return s_shaders.emplace(name, std::move(shader)).first->second.get();
+    }
+
+    Font *AssetManager::getFont(const std::string &name, const std::string &relative,
+                                float pixelHeight)
+    {
+        if (!s_initialized)
+        {
+            NBX_LOG_ERROR("AssetManager::getFont called before init()");
+            return nullptr;
+        }
+
+        const auto it = s_fonts.find(name);
+        if (it != s_fonts.end())
+            return it->second.get(); // may be null: a previously failed load
+
+        auto font = std::make_unique<Font>();
+        if (!font->loadFromFile(assetPath(relative), pixelHeight))
+        {
+            NBX_LOG_ERROR("Font '{}' failed to load ('{}'); cached as failed", name, relative);
+            s_fonts.emplace(name, nullptr); // remember the failure
+            return nullptr;
+        }
+
+        return s_fonts.emplace(name, std::move(font)).first->second.get();
     }
 
 } // namespace nbx

@@ -608,6 +608,44 @@ Nebrix-Engine/
   grim+magick with live hyprctl geometry (player srgb(173,142,180), floor
   srgb(64,52,46)). Behavior identical by construction. Next: Block 8.
 
+### 2026-09-19 — Phase 3, Block 8: text & UI
+- Vendored `sandbox/assets/fonts/NotoSansMono-Regular.ttf` (+ OFL.txt license)
+  instead of generating a bitmap atlas: real TTF keeps the repo portable and
+  matches how grown engines ship fonts.
+- New `Renderer/Font.h` + `Font.cpp`: stb_truetype bakes ASCII 32..126 at the
+  requested pixel height into a 512x512 RGBA atlas (white glyphs, coverage in
+  alpha) so text flows through the normal batch pipeline (texture * tint, one
+  draw call for all text). Glyph table with advance/bearing/UV, `measure()`,
+  `ascent()` for baseline layout, '?' fallback. `STB_TRUETYPE_IMPLEMENTATION`
+  lives in `Platform/Stb.cpp` next to stb_image.
+- `Renderer::drawText(font, text, topLeft, scale, color)`: top-left-anchored
+  text block, one batched quad per glyph, '\n' support. Baselines derive from
+  `ascent` (not the block top).
+- New `UI/UI.h` + `UI.cpp`: minimal immediate-mode UI in screen space
+  (Rect, contains, panel, label, labelCentered, button with hover + press-
+  inside/release-inside click semantics via per-id arm state). `ui::beginFrame`
+  snapshots mouse state once per frame (multi-button safe). Click-edge core is
+  a pure inline `detail::clickEdge` so it is unit-testable without GL.
+- `AssetManager::getFont(name, relative, pixelHeight)` with failure caching
+  (nullptr, like shaders).
+- Sandbox: starts in a menu (title + START/QUIT + hints, screen-space pass
+  with its own ortho projection — the first multi-pass frame), START enters
+  the game, ESC returns to the menu, sim frozen in menu. In-game HUD pass:
+  fps + controls hint on a translucent panel.
+- Real bug found by sampling, not by reading: stb `yoff` is negative-up from
+  the baseline, so the first version anchored glyph quads at the block top
+  and rendered all text one line too high (116 submitted quads, zero visible
+  pixels). Diagnosed with a CPU-only bake probe (/tmp/opencode/font_probe.cpp:
+  bake rows=73, 9048 covered px, N yoff=-17) and fixed with baseline =
+  topLeft + ascent. Lesson recorded: verify text with band scans, not single
+  pixels (glyph strokes miss point samples).
+- Verified: Debug + Release 0 warnings; ui_test (hit-testing + full
+  click-edge matrix), physics_test, anim_test all pass; menu screenshot shows
+  exact tint colors via grim+magick (title srgb(216,226,242), button label
+  white, hint srgb(140,153,173)); `fps=60`. The in-game HUD + START click path
+  use the same proven primitives; manual click-through left for the user at
+  runtime. Commits held pending approval. Next action: Block 9 (Scenes).
+
 ### Beyond Block 11 — long-term vision (Stardew Valley / Graveyard Keeper)
 - Declared target (2026-08-21): the engine must grow into something a solo
   dev can use to build Stardew Valley / Graveyard Keeper class games
@@ -647,9 +685,9 @@ Nebrix-Engine/
     in fixedUpdate; generated player walk spritesheet; walk on input, idle
     frame 0 otherwise.
 
-### Block 8 — Text & UI
-- Bitmap font (character atlas PNG) -> renderable `Text`; then UI: panels +
-  buttons (hover/click via mouse Input) — menu in the sandbox.
+### Block 8 — Text & UI (DONE 2026-09-19)
+- [x] Bitmap font (vendored TTF + stb_truetype bake) -> renderable `Text`.
+- [x] UI: panels + buttons (hover/click via mouse Input) — menu in sandbox.
 
 ### Block 9 — Scenes
 - `Scene` (World + update/render + lifecycle) and `SceneManager` (transitions);

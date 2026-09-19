@@ -12,8 +12,10 @@ add_library(Nebrix STATIC
     src/Renderer/Buffer.cpp
     src/Renderer/Texture.cpp
     src/Renderer/TextureAtlas.cpp
+    src/Renderer/Font.cpp
     src/Renderer/Camera2D.cpp
     src/Renderer/Renderer.cpp
+    src/UI/UI.cpp
     src/Assets/AssetManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/src/glad.c
 )

@@ -11,12 +11,15 @@
 #include <Nebrix/Platform/Window.h>
 #include <Nebrix/Renderer/Animation.h>
 #include <Nebrix/Renderer/Camera2D.h>
+#include <Nebrix/Renderer/Font.h>
 #include <Nebrix/Renderer/Renderer.h>
 #include <Nebrix/Renderer/SpriteSheet.h>
+#include <Nebrix/UI/UI.h>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <format>
 #include <vector>
 
 #include "Maze.h"
@@ -59,6 +62,12 @@ int main()
         Renderer::setShader(shader);
     else
         NBX_LOG_WARN("Using engine's default batch shader");
+
+    // Bitmap font for menus and HUD, baked from a vendored TTF. Without it the
+    // sandbox skips the menu and runs the game directly.
+    Font *font = AssetManager::getFont("mono32", "fonts/NotoSansMono-Regular.ttf", 32.0f);
+    if (!font)
+        NBX_LOG_WARN("Running without text: font failed to load");
 
     Renderer::setViewport(static_cast<int>(window.width()), static_cast<int>(window.height()));
 
@@ -138,8 +147,13 @@ int main()
 
     constexpr float kWorldSize = kWorldTiles * kTileSize;
 
+    // Starts in the menu when text is available; the sim stays frozen there.
+    bool inMenu = (font != nullptr);
+
     loop.setFixedUpdateFn([&](double fixedDt)
                           {
+        if (inMenu)
+            return; // frozen while the menu is up
         const float dt = static_cast<float>(fixedDt);
 
         float dx = (Input::isActionDown("MoveRight") ? 1.0f : 0.0f) -
@@ -187,12 +201,19 @@ int main()
     uint64_t frameCounter = 0;
 
     loop.setUpdateFn([&](double dt)
-                     {
+                      {
         window.pollEvents();
+        ui::beginFrame();
         if (shader && shader->update(dt)) {
             // Shader reloaded; Renderer keeps using the same Shader object.
             NBX_LOG_INFO("Shader hot-reloaded");
         }
+
+        static bool escWasDown = false;
+        const bool escDown = Input::isKeyDown(Key::Escape);
+        if (escDown && !escWasDown && !inMenu)
+            inMenu = true;
+        escWasDown = escDown;
 
         static bool cWasDown = false;
         const bool cDown = Input::isActionDown("ToggleCulling");
@@ -205,57 +226,107 @@ int main()
         if (Input::isActionDown("ZoomOut"))
             targetZoom = std::clamp(targetZoom / 1.02f, 0.25f, 4.0f);
 
-        camera.setZoom(camera.zoom() + (targetZoom - camera.zoom()) * 0.1f);
-        camera.follow(world.get<Transform>(player).position, 8.0f, dt); });
+        if (!inMenu)
+        {
+            camera.setZoom(camera.zoom() + (targetZoom - camera.zoom()) * 0.1f);
+            camera.follow(world.get<Transform>(player).position, 8.0f, dt);
+        } });
 
     loop.setRenderFn([&](const FrameStats &stats)
                      {
         Renderer::clear({0.09f, 0.10f, 0.13f, 1.0f});
-        Renderer::beginFrame(camera.viewProjection());
 
-        const float interpolation = static_cast<float>(stats.interpolation);
+        const float screenW = static_cast<float>(window.width());
+        const float screenH = static_cast<float>(window.height());
+        const math::mat4 screenProj = math::ortho(0.0f, screenW, screenH, 0.0f, -1.0f, 1.0f);
 
-        // Tilemap: only cells inside the camera's view (all 10k when culling is off).
-        for (auto [entity, tilemap, mapTransform] : world.view<Tilemap, Transform>()) {
-            (void)entity;
-            const float originX = mapTransform.position.x;
-            const float originY = mapTransform.position.y;
-            const math::vec2 viewMin = camera.position() -
-                                       math::vec2(camera.viewWidth() * 0.5f, camera.viewHeight() * 0.5f);
-            const math::vec2 viewMax = camera.position() +
-                                       math::vec2(camera.viewWidth() * 0.5f, camera.viewHeight() * 0.5f);
-            int32_t minX = 0;
-            int32_t minY = 0;
-            int32_t maxX = static_cast<int32_t>(tilemap.width) - 1;
-            int32_t maxY = static_cast<int32_t>(tilemap.height) - 1;
-            const bool visible =
-                !cullingEnabled ||
-                tilemap.cellRange(viewMin.x - originX, viewMin.y - originY, viewMax.x - originX,
-                                  viewMax.y - originY, minX, minY, maxX, maxY);
-            if (!visible)
-                continue;
-            for (int32_t cy = minY; cy <= maxY; ++cy) {
-                for (int32_t cx = minX; cx <= maxX; ++cx) {
-                    const math::vec2 center(originX + (static_cast<float>(cx) + 0.5f) * tilemap.tileSize,
-                                            originY + (static_cast<float>(cy) + 0.5f) * tilemap.tileSize);
-                    Renderer::drawQuad({.position = center, .scale = {tilemap.tileSize, tilemap.tileSize}},
-                                       tileSprites[tilemap.indexAt(static_cast<uint32_t>(cx),
-                                                                    static_cast<uint32_t>(cy))]);
+        if (inMenu && font)
+        {
+            // Menu pass in screen space: title + buttons, no world rendering.
+            Renderer::beginFrame(screenProj);
+            const float cx = screenW * 0.5f;
+            const float cy = screenH * 0.5f;
+            ui::labelCentered(*font, "NEBRIX", {0.0f, cy - 180.0f, screenW, 96.0f}, 3.0f,
+                              {0.85f, 0.89f, 0.95f, 1.0f});
+            ui::labelCentered(*font, "a 2d engine sandbox - maze - player - 10k tiles",
+                              {0.0f, cy - 84.0f, screenW, 32.0f}, 1.0f,
+                              {0.55f, 0.60f, 0.68f, 1.0f});
+            if (ui::button(*font, "start", {cx - 150.0f, cy - 20.0f, 300.0f, 64.0f}, "START",
+                           1.25f, {0.16f, 0.19f, 0.24f, 1.0f}, {0.37f, 0.51f, 0.67f, 1.0f},
+                           {1.0f, 1.0f, 1.0f, 1.0f}))
+            {
+                inMenu = false;
+                NBX_LOG_INFO("Starting game");
+            }
+            if (ui::button(*font, "quit", {cx - 150.0f, cy + 56.0f, 300.0f, 64.0f}, "QUIT",
+                           1.25f, {0.16f, 0.19f, 0.24f, 1.0f}, {0.75f, 0.38f, 0.42f, 1.0f},
+                           {1.0f, 1.0f, 1.0f, 1.0f}))
+                loop.stop();
+            ui::labelCentered(*font, "WASD / arrows move - +/- zoom - C culling - ESC menu",
+                              {0.0f, screenH - 48.0f, screenW, 32.0f}, 0.75f,
+                              {0.55f, 0.60f, 0.68f, 1.0f});
+            Renderer::endFrame();
+        }
+        else
+        {
+            Renderer::beginFrame(camera.viewProjection());
+
+            const float interpolation = static_cast<float>(stats.interpolation);
+
+            // Tilemap: only cells inside the camera's view (all 10k when culling is off).
+            for (auto [entity, tilemap, mapTransform] : world.view<Tilemap, Transform>()) {
+                (void)entity;
+                const float originX = mapTransform.position.x;
+                const float originY = mapTransform.position.y;
+                const math::vec2 viewMin = camera.position() -
+                                           math::vec2(camera.viewWidth() * 0.5f, camera.viewHeight() * 0.5f);
+                const math::vec2 viewMax = camera.position() +
+                                           math::vec2(camera.viewWidth() * 0.5f, camera.viewHeight() * 0.5f);
+                int32_t minX = 0;
+                int32_t minY = 0;
+                int32_t maxX = static_cast<int32_t>(tilemap.width) - 1;
+                int32_t maxY = static_cast<int32_t>(tilemap.height) - 1;
+                const bool visible =
+                    !cullingEnabled ||
+                    tilemap.cellRange(viewMin.x - originX, viewMin.y - originY, viewMax.x - originX,
+                                      viewMax.y - originY, minX, minY, maxX, maxY);
+                if (!visible)
+                    continue;
+                for (int32_t cy = minY; cy <= maxY; ++cy) {
+                    for (int32_t cx = minX; cx <= maxX; ++cx) {
+                        const math::vec2 center(originX + (static_cast<float>(cx) + 0.5f) * tilemap.tileSize,
+                                                originY + (static_cast<float>(cy) + 0.5f) * tilemap.tileSize);
+                        Renderer::drawQuad({.position = center, .scale = {tilemap.tileSize, tilemap.tileSize}},
+                                           tileSprites[tilemap.indexAt(static_cast<uint32_t>(cx),
+                                                                        static_cast<uint32_t>(cy))]);
+                    }
                 }
             }
-        }
 
-        // Player: interpolated between the previous and current fixed step.
-        for (auto [entity, player, transform, sprite] : world.view<Player, Transform, Sprite>()) {
-            (void)entity;
-            Renderer::drawQuad({.position = math::lerp(player.previous, transform.position,
-                                                       interpolation),
-                                .rotation = transform.rotation,
-                                .scale = transform.scale},
-                               sprite);
-        }
+            // Player: interpolated between the previous and current fixed step.
+            for (auto [entity, player, transform, sprite] : world.view<Player, Transform, Sprite>()) {
+                (void)entity;
+                Renderer::drawQuad({.position = math::lerp(player.previous, transform.position,
+                                                           interpolation),
+                                    .rotation = transform.rotation,
+                                    .scale = transform.scale},
+                                   sprite);
+            }
 
-        Renderer::endFrame();
+            Renderer::endFrame();
+
+            // HUD pass in screen space: fps + controls hint.
+            Renderer::beginFrame(screenProj);
+            ui::panel({10.0f, 10.0f, 340.0f, 88.0f}, {0.05f, 0.06f, 0.08f, 0.75f});
+            if (font)
+            {
+                ui::label(*font, std::format("fps {}", stats.fps), {22.0f, 20.0f}, 0.75f,
+                          {1.0f, 1.0f, 1.0f, 1.0f});
+                ui::label(*font, "WASD move - ESC menu", {22.0f, 52.0f}, 0.75f,
+                          {0.65f, 0.70f, 0.78f, 1.0f});
+            }
+            Renderer::endFrame();
+        }
         window.swapBuffers();
 
         if (++frameCounter % 60 == 0) {

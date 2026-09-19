@@ -1,9 +1,11 @@
 #pragma once
 
+#include "Nebrix/Renderer/Font.h"
 #include "Nebrix/Renderer/Shader.h"
 #include "Nebrix/Renderer/Texture.h"
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -44,6 +46,11 @@ namespace nbx
         static Shader *getShader(const std::string &name, const std::string &vertexRelative,
                                  const std::string &fragmentRelative);
 
+        // Loads (or returns the cached) bitmap font at the given pixel height.
+        // Returns nullptr when the file is missing or invalid (also cached).
+        static Font *getFont(const std::string &name, const std::string &relative,
+                             float pixelHeight);
+
     private:
         static const Texture &magentaFallback();
 
@@ -51,6 +58,7 @@ namespace nbx
         static bool s_initialized;
         static std::unordered_map<std::string, Texture> s_textures;
         static std::unordered_map<std::string, std::unique_ptr<Shader>> s_shaders;
+        static std::unordered_map<std::string, std::unique_ptr<Font>> s_fonts;
     };
 
 } // namespace nbx

@@ -1042,6 +1042,26 @@ the old procedural ones, which is what the grim+magick verification checks.
 - `player_walk.png` (192x48, 4 frames) is generated alongside the other
   assets; the sandbox sets `playing` from input and resets to frame 0 on stop.
 
+### 15.5 Text, UI and menu (Block 8)
+
+- `Font` bakes a vendored TTF (`sandbox/assets/fonts/`, OFL-licensed) into a
+  512x512 RGBA atlas with stb_truetype: white glyphs, coverage in alpha, so
+  text renders through the standard batch as texture * tint. Glyph metrics
+  (advance, bearings, UV) plus `measure()` and `ascent()`; unknown chars fall
+  back to '?'.
+- `Renderer::drawText` draws a top-left-anchored block, one batched quad per
+  glyph, with baselines at block-top + ascent (stb yoff is negative-up from
+  the baseline — anchoring at the block top renders a line too high).
+- `UI/` is a minimal immediate-mode layer in screen-space pixels: `panel`,
+  `label`, `labelCentered`, and `button` (hover tint + press-inside /
+  release-inside click via per-id arm state, mouse snapshotted once per frame
+  in `ui::beginFrame`). The click edge core is pure (`detail::clickEdge`) and
+  unit-tested without GL.
+- `AssetManager::getFont` caches baked fonts like textures and shaders. The
+  sandbox boots into a menu (own screen-space ortho pass — the first
+  multi-pass frame), START enters the maze, ESC returns, and an HUD pass
+  shows fps + hints over the game.
+
 ---
 
 *Last updated: 2026-08-21 (Blocks 1-7 done; see section 15 for the parts

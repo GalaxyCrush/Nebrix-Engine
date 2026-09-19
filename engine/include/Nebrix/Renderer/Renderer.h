@@ -4,11 +4,13 @@
 #include "Nebrix/Renderer/Sprite.h"
 
 #include <cstdint>
+#include <string_view>
 
 namespace nbx
 {
 
     class Shader;
+    class Font;
 
     // Batched 2D renderer: all quads submitted between beginFrame/endFrame are packed
     // into one vertex buffer and drawn with a single draw call per texture.
@@ -37,6 +39,11 @@ namespace nbx
         static void drawQuad(const math::Transform2D &transform, const Sprite &sprite,
                              const math::vec4 &tint = {1.0f, 1.0f, 1.0f, 1.0f});
         static void drawQuad(const math::Transform2D &transform, const math::vec4 &color);
+
+        // Text block with its TOP-LEFT corner at topLeft (y-down), one quad per
+        // glyph from the font atlas (batched like everything else). Supports '\n'.
+        static void drawText(const Font &font, std::string_view text, const math::vec2 &topLeft,
+                             float scale, const math::vec4 &color);
 
         // Uses a custom shader for the batch instead of the internal default.
         // The shader must declare u_Projection, u_Texture and use the same vertex layout.
