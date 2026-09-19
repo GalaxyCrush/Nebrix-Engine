@@ -1062,6 +1062,18 @@ the old procedural ones, which is what the grim+magick verification checks.
   multi-pass frame), START enters the maze, ESC returns, and an HUD pass
   shows fps + hints over the game.
 
+### 15.6 Scenes (Block 9)
+
+- `Scene` is a lifecycle base (onEnter/onExit/onResize + fixedUpdate/update/
+  render); `SceneManager` owns the current scene and forwards everything.
+  `switchTo<T>()` exits the old scene before entering the new one, so a
+  restart is a fresh instance. Rule: never touch `this` after switchTo (it
+  destroys the caller).
+- Sandbox: `MenuScene` (title + START/QUIT), `GameScene` (own World, camera,
+  physics, animations, maze built in onEnter; R restarts, ESC to menu), and a
+  slim `Main.cpp` (init, action map, loop forwarding, shutdown). Window
+  resizes reach scenes through `onResize`.
+
 ---
 
 *Last updated: 2026-08-21 (Blocks 1-7 done; see section 15 for the parts
