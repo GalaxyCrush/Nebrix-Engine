@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Nebrix/Core/Assert.h"
+
 #include <cmath>
 
 namespace nbx::math
@@ -143,6 +145,8 @@ namespace nbx::math
     // Standard OpenGL orthographic projection (column-major).
     inline mat4 ortho(float left, float right, float bottom, float top, float zNear, float zFar)
     {
+        NBX_ASSERT(right != left && top != bottom && zNear != zFar,
+                   "degenerate ortho range (division by zero)");
         mat4 result{};
         result.m[0] = 2.0f / (right - left);
         result.m[5] = 2.0f / (top - bottom);

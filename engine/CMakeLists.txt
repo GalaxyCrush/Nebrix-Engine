@@ -1,15 +1,20 @@
 add_library(Nebrix STATIC
     src/Core/Log.cpp
     src/Core/GameLoop.cpp
+    src/ECS/World.cpp
+    src/Physics/SpatialHashGrid.cpp
+    src/Physics/PhysicsSystem.cpp
     src/Platform/Input.cpp
     src/Platform/Window.cpp
     src/Platform/Stb.cpp
     src/Renderer/Shader.cpp
+    src/Renderer/Animation.cpp
     src/Renderer/Buffer.cpp
     src/Renderer/Texture.cpp
     src/Renderer/TextureAtlas.cpp
     src/Renderer/Camera2D.cpp
     src/Renderer/Renderer.cpp
+    src/Assets/AssetManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/glad/src/glad.c
 )
 

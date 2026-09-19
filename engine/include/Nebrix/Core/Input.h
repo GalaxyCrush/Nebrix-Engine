@@ -165,11 +165,23 @@ namespace nbx
         static Key translateKey(int backendKeyCode);
 
     private:
+        // Transparent hashing so queries take string_view without allocating
+        // a temporary std::string per call (this runs every frame).
+        struct ActionHash
+        {
+            using is_transparent = void;
+            size_t operator()(std::string_view key) const
+            {
+                return std::hash<std::string_view>{}(key);
+            }
+        };
+
         static GLFWwindow *s_window;
         static math::vec2 s_mousePosition;
         static math::vec2 s_mouseDelta;
         static bool s_mouseCaptured;
-        static std::unordered_map<std::string, std::vector<Key>> s_actions;
+        static std::unordered_map<std::string, std::vector<Key>, ActionHash, std::equal_to<>>
+            s_actions;
     };
 
 } // namespace nbx

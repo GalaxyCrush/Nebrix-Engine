@@ -15,6 +15,10 @@ namespace nbx
     namespace
     {
 
+        // Tracks whether this process successfully ran glfwInit, so shutdown can
+        // be idempotent and safe even when init failed early or was never called.
+        bool s_glfwInitialized = false;
+
         Window *windowFrom(GLFWwindow *window)
         {
             return static_cast<Window *>(glfwGetWindowUserPointer(window));
@@ -48,8 +52,8 @@ namespace nbx
             if (Window *self = windowFrom(window))
             {
                 Event event;
-                event.type = action == GLFW_PRESS ? Event::Type::KeyPressed
-                                                  : Event::Type::KeyReleased;
+                event.type = action == GLFW_RELEASE ? Event::Type::KeyReleased
+                                                    : Event::Type::KeyPressed;
                 event.data1 = static_cast<int>(Input::translateKey(key));
                 event.data2 = action == GLFW_REPEAT ? 1 : 0;
                 self->emit(event);
@@ -113,6 +117,7 @@ namespace nbx
             NBX_LOG_ERROR("GLFW init failed");
             return false;
         }
+        s_glfwInitialized = true;
 
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -171,7 +176,11 @@ namespace nbx
             glfwDestroyWindow(m_window);
             m_window = nullptr;
         }
-        glfwTerminate();
+        if (s_glfwInitialized)
+        {
+            glfwTerminate();
+            s_glfwInitialized = false;
+        }
     }
 
     void Window::pollEvents()
@@ -184,6 +193,8 @@ namespace nbx
 
     uint32_t Window::width() const
     {
+        if (!m_window)
+            return 0;
         int width = 0;
         glfwGetFramebufferSize(m_window, &width, nullptr);
         return static_cast<uint32_t>(width);
@@ -191,6 +202,8 @@ namespace nbx
 
     uint32_t Window::height() const
     {
+        if (!m_window)
+            return 0;
         int height = 0;
         glfwGetFramebufferSize(m_window, nullptr, &height);
         return static_cast<uint32_t>(height);

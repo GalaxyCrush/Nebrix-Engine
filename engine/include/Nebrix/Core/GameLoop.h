@@ -1,5 +1,9 @@
 #pragma once
 
+#include "Nebrix/Core/Log.h"
+
+#include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 
@@ -23,10 +27,30 @@ namespace nbx
         using UpdateFn = std::function<void(double dt)>;
         using RenderFn = std::function<void(const FrameStats &stats)>;
 
+        // At most this many fixed steps per frame; any further backlog is dumped
+        // instead of spiraling (relevant when fixedTimestep << real frame time).
+        static constexpr uint32_t kMaxStepsPerFrame = 8;
+
         GameLoop() = default;
 
-        void setFixedTimestep(double seconds) { m_fixedTimestep = seconds; }
-        void setMaxFrameTime(double seconds) { m_maxFrameTime = seconds; }
+        void setFixedTimestep(double seconds)
+        {
+            if (seconds <= 0.0 || !std::isfinite(seconds))
+            {
+                NBX_LOG_WARN("Ignoring invalid fixed timestep ({})", seconds);
+                return;
+            }
+            m_fixedTimestep = seconds;
+        }
+        void setMaxFrameTime(double seconds)
+        {
+            if (seconds <= 0.0 || !std::isfinite(seconds))
+            {
+                NBX_LOG_WARN("Ignoring invalid max frame time ({})", seconds);
+                return;
+            }
+            m_maxFrameTime = seconds;
+        }
         // Caps render rate when vsync is unavailable (e.g. Wayland). 0 = uncapped.
         void setFrameCap(uint32_t fps) { m_frameCap = fps; }
         void setFixedUpdateFn(FixedUpdateFn fn) { m_fixedUpdate = std::move(fn); }
@@ -34,14 +58,14 @@ namespace nbx
         void setRenderFn(RenderFn fn) { m_render = std::move(fn); }
 
         void run();
-        void stop() { m_running = false; }
+        void stop() { m_running.store(false, std::memory_order_relaxed); }
 
     private:
         double m_fixedTimestep = 1.0 / 60.0;
         double m_maxFrameTime = 0.25;
         uint32_t m_frameCap = 0;
         uint32_t m_lastFps = 0;
-        bool m_running = false;
+        std::atomic<bool> m_running{false};
         FixedUpdateFn m_fixedUpdate;
         UpdateFn m_update;
         RenderFn m_render;

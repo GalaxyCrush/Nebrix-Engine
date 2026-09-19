@@ -8,6 +8,12 @@
 namespace nbx
 {
 
+    enum class BufferUsage
+    {
+        Static,  // written once (index buffers, static geometry)
+        Dynamic, // re-uploaded every frame or every flush (batch vertex data)
+    };
+
     enum class ShaderDataType
     {
         Float,
@@ -80,7 +86,8 @@ namespace nbx
     class VertexBuffer
     {
     public:
-        explicit VertexBuffer(const void *data, uint32_t size);
+        explicit VertexBuffer(const void *data, uint32_t size,
+                              BufferUsage usage = BufferUsage::Static);
         ~VertexBuffer();
 
         VertexBuffer(const VertexBuffer &) = delete;

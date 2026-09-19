@@ -21,27 +21,14 @@ namespace nbx
             return false;
         }
         m_texture = std::move(texture);
-        m_columns = columns;
-        m_rows = rows;
-        m_cellWidth = static_cast<float>(m_texture.width()) / static_cast<float>(columns);
-        m_cellHeight = static_cast<float>(m_texture.height()) / static_cast<float>(rows);
+        const float cellWidth =
+            static_cast<float>(m_texture.width()) / static_cast<float>(columns);
+        const float cellHeight =
+            static_cast<float>(m_texture.height()) / static_cast<float>(rows);
+        m_sheet = SpriteSheet(m_texture.id(), columns, rows, cellWidth, cellHeight);
         NBX_LOG_INFO("TextureAtlas created: {}x{} cells of {:.0f}x{:.0f}px", columns, rows,
-                     m_cellWidth, m_cellHeight);
+                     cellWidth, cellHeight);
         return true;
-    }
-
-    Sprite TextureAtlas::cell(uint32_t column, uint32_t row) const
-    {
-        const float u0 = static_cast<float>(column) / static_cast<float>(m_columns);
-        const float v0 = static_cast<float>(row) / static_cast<float>(m_rows);
-        const float u1 = static_cast<float>(column + 1) / static_cast<float>(m_columns);
-        const float v1 = static_cast<float>(row + 1) / static_cast<float>(m_rows);
-        return {m_texture.id(), {u0, v0, u1, v1}, m_cellWidth, m_cellHeight};
-    }
-
-    Sprite TextureAtlas::cell(uint32_t index) const
-    {
-        return cell(index % m_columns, index / m_columns);
     }
 
 } // namespace nbx
