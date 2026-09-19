@@ -105,8 +105,6 @@ void main() {
 
             Log::write(level, std::source_location::current(), "[OpenGL] {}",
                        message ? message : "");
-            Log::write(level, std::source_location::current(), "[OpenGL] {}",
-                       message ? message : "");
         }
 #endif
 
@@ -162,9 +160,6 @@ void main() {
 
         // Static index buffer covers the whole capacity; the vertex buffer is
         // re-uploaded per flush.
-        // Dynamic: the vertex buffer is re-uploaded (sub-data) on every flush.
-        s_quadVB = std::make_unique<VertexBuffer>(nullptr, kMaxVertices * sizeof(BatchVertex),
-                                                  BufferUsage::Dynamic);
         // Dynamic: the vertex buffer is re-uploaded (sub-data) on every flush.
         s_quadVB = std::make_unique<VertexBuffer>(nullptr, kMaxVertices * sizeof(BatchVertex),
                                                   BufferUsage::Dynamic);
@@ -306,10 +301,6 @@ void main() {
     {
         if (s_quadCount >= kMaxQuads)
         {
-            // Flush-and-retry instead of dropping: >capacity in one frame is a
-            // slowdown, not silent visual loss.
-            NBX_LOG_WARN("Batch capacity reached ({}, flushing mid-frame)", kMaxQuads);
-            flush();
             // Flush-and-retry instead of dropping: >capacity in one frame is a
             // slowdown, not silent visual loss.
             NBX_LOG_WARN("Batch capacity reached ({}, flushing mid-frame)", kMaxQuads);

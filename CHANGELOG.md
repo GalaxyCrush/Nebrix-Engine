@@ -46,34 +46,20 @@ Nebrix-Engine/
 ├── docs/
 │   ├── ARCHITECTURE.md     # complete engine guide: every file, how/why it works
 │   └── LEARNING_PATH.md    # solo study plan: every block -> its canonical resource
-├── CMakeLists.txt          # top level: C++23, Ninja, finds GLFW, adds engine + sandbox
-├── CHANGELOG.md            # project log (history, decisions, plan)
-├── docs/
-│   ├── ARCHITECTURE.md     # complete engine guide: every file, how/why it works
-│   └── LEARNING_PATH.md    # solo study plan: every block -> its canonical resource
 ├── engine/                 # the Nebrix engine (static library)
 │   ├── CMakeLists.txt
 │   ├── include/Nebrix/
 │   │   ├── Assets/         # AssetManager.h (root resolution, texture/shader cache)
 │   │   ├── Core/           # Log.h, Assert.h, GameLoop.h, Events.h, Input.h
 │   │   ├── ECS/            # World.h (sparse sets + views), Components.h
-│   │   ├── Assets/         # AssetManager.h (root resolution, texture/shader cache)
-│   │   ├── Core/           # Log.h, Assert.h, GameLoop.h, Events.h, Input.h
-│   │   ├── ECS/            # World.h (sparse sets + views), Components.h
 │   │   ├── Math/           # Math.h (vec2/3/4, mat4, Transform2D, ortho, translate, scale, lerp)
-│   │   ├── Physics/        # AABB.h, SpatialHashGrid.h, PhysicsSystem.h
 │   │   ├── Physics/        # AABB.h, SpatialHashGrid.h, PhysicsSystem.h
 │   │   ├── Platform/       # Window.h (GLFW window + GL context)
 │   │   └── Renderer/       # Shader.h, Buffer.h, Texture.h, TextureAtlas.h, Sprite.h,
 │   │                       #   SpriteSheet.h, Camera2D.h, Renderer.h (batched)
-│   │                       #   SpriteSheet.h, Camera2D.h, Renderer.h (batched)
 │   └── src/
 │       ├── Assets/         # AssetManager.cpp
-│       ├── Assets/         # AssetManager.cpp
 │       ├── Core/           # Log.cpp, GameLoop.cpp
-│       ├── ECS/            # World.cpp
-│       ├── Physics/        # SpatialHashGrid.cpp, PhysicsSystem.cpp
-│       ├── Platform/       # Window.cpp, Input.cpp, Stb.cpp (STB_IMAGE_IMPLEMENTATION)
 │       ├── ECS/            # World.cpp
 │       ├── Physics/        # SpatialHashGrid.cpp, PhysicsSystem.cpp
 │       ├── Platform/       # Window.cpp, Input.cpp, Stb.cpp (STB_IMAGE_IMPLEMENTATION)
@@ -81,10 +67,6 @@ Nebrix-Engine/
 │                           #   Camera2D.cpp, Renderer.cpp
 ├── sandbox/                # demo game app that proves the engine works
 │   ├── src/Main.cpp
-│   ├── assets/
-│   │   ├── generate_assets.py  # Pillow script -> textures/*.png
-│   │   ├── shaders/            # batch.vert + batch.frag (hot-reloadable)
-│   │   └── textures/           # tileset.png + player.png (generated)
 │   ├── assets/
 │   │   ├── generate_assets.py  # Pillow script -> textures/*.png
 │   │   ├── shaders/            # batch.vert + batch.frag (hot-reloadable)
