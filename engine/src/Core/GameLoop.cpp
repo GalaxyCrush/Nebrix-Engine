@@ -22,13 +22,13 @@ namespace nbx
 
     void GameLoop::run()
     {
-        m_running = true;
+        m_running.store(true, std::memory_order_relaxed);
         double previous = nowSeconds();
         double accumulator = 0.0;
         uint32_t frameCount = 0;
         double fpsWindow = 0.0;
 
-        while (m_running)
+        while (m_running.load(std::memory_order_relaxed))
         {
             const double frameStart = nowSeconds();
             double frameTime = frameStart - previous;
@@ -38,11 +38,18 @@ namespace nbx
             frameTime = std::min(frameTime, m_maxFrameTime);
             accumulator += frameTime;
 
+            uint32_t steps = 0;
             while (accumulator >= m_fixedTimestep)
             {
                 if (m_fixedUpdate)
                     m_fixedUpdate(m_fixedTimestep);
                 accumulator -= m_fixedTimestep;
+                if (++steps >= kMaxStepsPerFrame)
+                {
+                    // Dump the backlog: catching up is not worth freezing the app.
+                    accumulator = 0.0;
+                    break;
+                }
             }
 
             FrameStats stats;

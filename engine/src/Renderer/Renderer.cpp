@@ -102,8 +102,8 @@ void main() {
             else if (severity == GL_DEBUG_SEVERITY_MEDIUM)
                 level = LogLevel::Warn;
 
-            Log::write(level, std::source_location::current(),
-                       std::format("[OpenGL] {}", message ? message : ""));
+            Log::write(level, std::source_location::current(), "[OpenGL] {}",
+                       message ? message : "");
         }
 #endif
 
@@ -159,7 +159,9 @@ void main() {
 
         // Static index buffer covers the whole capacity; the vertex buffer is
         // re-uploaded per flush.
-        s_quadVB = std::make_unique<VertexBuffer>(nullptr, kMaxVertices * sizeof(BatchVertex));
+        // Dynamic: the vertex buffer is re-uploaded (sub-data) on every flush.
+        s_quadVB = std::make_unique<VertexBuffer>(nullptr, kMaxVertices * sizeof(BatchVertex),
+                                                  BufferUsage::Dynamic);
         s_quadIB = makeIndexBuffer();
 
         s_quadVA = std::make_unique<VertexArray>();
@@ -231,7 +233,14 @@ void main() {
         submit(transform, {0.0f, 0.0f, 1.0f, 1.0f}, color);
     }
 
-    void Renderer::setShader(Shader *shader) { s_shader = shader ? shader : s_defaultShader.get(); }
+    void Renderer::setShader(Shader *shader)
+    {
+        Shader *next = shader ? shader : s_defaultShader.get();
+        // Pending quads were expanded for the current shader; flush before switching.
+        if (s_shader != next && s_quadCount > 0)
+            flush();
+        s_shader = next;
+    }
 
     const Renderer::Stats &Renderer::stats() { return s_stats; }
 
@@ -266,8 +275,10 @@ void main() {
     {
         if (s_quadCount >= kMaxQuads)
         {
-            NBX_LOG_ERROR("Batch capacity exceeded ({} quads); quad dropped", kMaxQuads);
-            return;
+            // Flush-and-retry instead of dropping: >capacity in one frame is a
+            // slowdown, not silent visual loss.
+            NBX_LOG_WARN("Batch capacity reached ({}, flushing mid-frame)", kMaxQuads);
+            flush();
         }
 
         const std::array<math::vec2, 4> kLocalCorners = {

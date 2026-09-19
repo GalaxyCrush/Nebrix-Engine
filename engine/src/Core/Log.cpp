@@ -1,5 +1,6 @@
 #include "Nebrix/Core/Log.h"
 
+#include <atomic>
 #include <cstdio>
 
 namespace nbx
@@ -7,8 +8,6 @@ namespace nbx
 
     namespace
     {
-
-        LogLevel s_level = LogLevel::Info;
 
         const char *levelName(LogLevel level)
         {
@@ -44,19 +43,27 @@ namespace nbx
 
     } // namespace
 
-    void Log::setLevel(LogLevel level) { s_level = level; }
-
-    void Log::write(LogLevel level, const std::source_location &location, std::string message)
+    std::atomic<LogLevel> &Log::levelStorage()
     {
-        if (level < s_level)
-            return;
+        static std::atomic<LogLevel> s_level{LogLevel::Info};
+        return s_level;
+    }
 
+    LogLevel Log::level() { return levelStorage().load(std::memory_order_relaxed); }
+
+    void Log::setLevel(LogLevel level) { levelStorage().store(level, std::memory_order_relaxed); }
+
+    void Log::writeFormatted(LogLevel level, const std::source_location &location,
+                             std::string &&message)
+    {
         std::string_view file = location.file_name();
         if (const auto pos = file.find_last_of('/'); pos != std::string_view::npos)
             file = file.substr(pos + 1);
 
-        std::fprintf(stderr, "%s[Nebrix][%-5s] %s\033[0m (%s:%u)\n", levelColor(level),
-                     levelName(level), message.c_str(), file.data(), location.line());
+        // %.*s: string_view data is not guaranteed null-terminated.
+        std::fprintf(stderr, "%s[Nebrix][%-5s] %s\033[0m (%.*s:%u)\n", levelColor(level),
+                     levelName(level), message.c_str(), static_cast<int>(file.size()),
+                     file.data(), location.line());
     }
 
 } // namespace nbx

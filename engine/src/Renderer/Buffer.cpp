@@ -47,11 +47,12 @@ namespace nbx
 
     } // namespace
 
-    VertexBuffer::VertexBuffer(const void *data, uint32_t size)
+    VertexBuffer::VertexBuffer(const void *data, uint32_t size, BufferUsage usage)
     {
         glGenBuffers(1, &m_id);
         bind();
-        glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+        const GLenum glUsage = usage == BufferUsage::Dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+        glBufferData(GL_ARRAY_BUFFER, size, data, glUsage);
     }
 
     VertexBuffer::~VertexBuffer()

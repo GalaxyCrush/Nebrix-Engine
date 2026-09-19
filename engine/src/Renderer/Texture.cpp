@@ -40,8 +40,10 @@ namespace nbx
 
     bool Texture::loadFromFile(const std::string &path)
     {
-        stbi_set_flip_vertically_on_load(1);
-
+        // No vertical flip: memory row 0 stays the image's top row, which
+        // matches Texture::create (raw pixels) and the renderer's UV convention
+        // (uv.y = top of the region on screen). Flipping here would render all
+        // file textures upside down.
         int width = 0;
         int height = 0;
         int channels = 0;

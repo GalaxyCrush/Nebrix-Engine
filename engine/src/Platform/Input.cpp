@@ -12,17 +12,49 @@ namespace nbx
     math::vec2 Input::s_mousePosition;
     math::vec2 Input::s_mouseDelta;
     bool Input::s_mouseCaptured = false;
-    std::unordered_map<std::string, std::vector<Key>> Input::s_actions;
+    std::unordered_map<std::string, std::vector<Key>, Input::ActionHash, std::equal_to<>>
+        Input::s_actions;
+
+    namespace
+    {
+
+        // Cursor in framebuffer pixels (logical window coords scaled by the
+        // HiDPI ratio), y-down - the same space Camera2D works in.
+        math::vec2 scaledCursor(GLFWwindow *window)
+        {
+            double x = 0.0;
+            double y = 0.0;
+            glfwGetCursorPos(window, &x, &y);
+
+            int windowWidth = 0;
+            int windowHeight = 0;
+            int drawableWidth = 0;
+            int drawableHeight = 0;
+            glfwGetWindowSize(window, &windowWidth, &windowHeight);
+            glfwGetFramebufferSize(window, &drawableWidth, &drawableHeight);
+
+            const float scaleX = static_cast<float>(drawableWidth) /
+                                 static_cast<float>(std::max(windowWidth, 1));
+            const float scaleY = static_cast<float>(drawableHeight) /
+                                 static_cast<float>(std::max(windowHeight, 1));
+            return {static_cast<float>(x) * scaleX, static_cast<float>(y) * scaleY};
+        }
+
+    } // namespace
 
     void Input::bind(GLFWwindow *window)
     {
         s_window = window;
-        s_mousePosition = {};
+        // Initialize from the current cursor position so the first frame's
+        // delta is not a jump from (0,0).
+        s_mousePosition = s_window ? scaledCursor(s_window) : math::vec2{};
         s_mouseDelta = {};
     }
 
     void Input::unbind()
     {
+        if (s_window && s_mouseCaptured)
+            glfwSetInputMode(s_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         s_window = nullptr;
         s_mousePosition = {};
         s_mouseDelta = {};
@@ -34,23 +66,7 @@ namespace nbx
         if (!s_window)
             return;
 
-        double x = 0.0;
-        double y = 0.0;
-        glfwGetCursorPos(s_window, &x, &y);
-
-        int windowWidth = 0;
-        int windowHeight = 0;
-        int drawableWidth = 0;
-        int drawableHeight = 0;
-        glfwGetWindowSize(s_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(s_window, &drawableWidth, &drawableHeight);
-
-        const float scaleX = static_cast<float>(drawableWidth) /
-                             static_cast<float>(std::max(windowWidth, 1));
-        const float scaleY = static_cast<float>(drawableHeight) /
-                             static_cast<float>(std::max(windowHeight, 1));
-
-        const math::vec2 position = {static_cast<float>(x) * scaleX, static_cast<float>(y) * scaleY};
+        const math::vec2 position = scaledCursor(s_window);
         s_mouseDelta = position - s_mousePosition;
         s_mousePosition = position;
     }
@@ -101,7 +117,8 @@ namespace nbx
 
     bool Input::isActionDown(std::string_view name)
     {
-        const auto it = s_actions.find(std::string(name));
+        // Heterogeneous lookup: no temporary std::string allocation per query.
+        const auto it = s_actions.find(name);
         if (it == s_actions.end())
             return false;
         for (const Key key : it->second)

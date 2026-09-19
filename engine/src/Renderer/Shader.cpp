@@ -73,7 +73,10 @@ namespace nbx
     bool Shader::loadFromSource(const std::string &vertexSrc, const std::string &fragmentSrc)
     {
         if (m_id)
+        {
             glDeleteProgram(m_id);
+            m_id = 0;  // no dangling program id when compilation below fails
+        }
 
         const uint32_t vertex = compile(GL_VERTEX_SHADER, vertexSrc);
         const uint32_t fragment = compile(GL_FRAGMENT_SHADER, fragmentSrc);
@@ -134,10 +137,26 @@ namespace nbx
         if (!loadFromSource(vertexSrc, fragmentSrc))
             return false;
 
+        // Stat with the error_code overload: a vanished file must not throw
+        // (the shader itself is loaded and usable at this point).
+        std::error_code error;
+        const auto vertexWriteTime = std::filesystem::last_write_time(vertexPath, error);
+        if (error)
+        {
+            NBX_LOG_WARN("Shader loaded, but hot reload disabled (cannot stat '{}')", vertexPath);
+            return true;
+        }
+        const auto fragmentWriteTime = std::filesystem::last_write_time(fragmentPath, error);
+        if (error)
+        {
+            NBX_LOG_WARN("Shader loaded, but hot reload disabled (cannot stat '{}')", fragmentPath);
+            return true;
+        }
+
         m_vertexPath = vertexPath;
         m_fragmentPath = fragmentPath;
-        m_vertexWriteTime = std::filesystem::last_write_time(vertexPath);
-        m_fragmentWriteTime = std::filesystem::last_write_time(fragmentPath);
+        m_vertexWriteTime = vertexWriteTime;
+        m_fragmentWriteTime = fragmentWriteTime;
         NBX_LOG_INFO("Hot reload enabled for '{}' and '{}'", vertexPath, fragmentPath);
         return true;
     }
