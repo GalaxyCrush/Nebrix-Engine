@@ -646,6 +646,27 @@ Nebrix-Engine/
   use the same proven primitives; manual click-through left for the user at
   runtime. Commits held pending approval. Next action: Block 9 (Scenes).
 
+### 2026-09-19 — Phase 3, Block 9: scenes
+- New `Scene/Scene.h` (base: onEnter/onExit/onResize + fixedUpdate/update/
+  render, all no-op defaults) and `Scene/SceneManager.h` + `SceneManager.cpp`
+  (owns the current scene, forwards everything, `switchTo<T>()` exits the old
+  scene before entering the new one — so restart is just a fresh instance).
+- Sandbox split: `MenuScene` (title + START/QUIT, switches to GameScene),
+  `GameScene` (owns World/Camera/physics/animations/player, builds the maze
+  in onEnter, R restarts via a fresh instance, ESC back to menu), slim
+  `Main.cpp` (~110 lines: init, action map, loop forwarding to the manager,
+  shutdown). Resize events forward via `Scene::onResize`.
+- Two use-after-free bugs caught in review (not by tests): switching scenes
+  destroys `this`, so MenuScene::render and GameScene::update return
+  immediately after switchTo instead of touching members. Rule recorded:
+  never touch `this` after switchTo.
+- Verified: Debug + Release 0 warnings; scene_test (empty-manager no-ops,
+  enter/exit order, forwarding, restart re-enter); physics/anim/ui tests
+  pass; menu screenshot identical through scenes (title/button exact colors,
+  `fps=60 quads=116 drawCalls=5`). Game path + R restart use proven
+  primitives; manual play-through left for the user. Next: Block 10 (Combat),
+  via PR workflow (no more direct pushes to main).
+
 ### Beyond Block 11 — long-term vision (Stardew Valley / Graveyard Keeper)
 - Declared target (2026-08-21): the engine must grow into something a solo
   dev can use to build Stardew Valley / Graveyard Keeper class games
@@ -689,9 +710,9 @@ Nebrix-Engine/
 - [x] Bitmap font (vendored TTF + stb_truetype bake) -> renderable `Text`.
 - [x] UI: panels + buttons (hover/click via mouse Input) — menu in sandbox.
 
-### Block 9 — Scenes
-- `Scene` (World + update/render + lifecycle) and `SceneManager` (transitions);
-  sandbox: MenuScene -> GameScene (maze), restart with R.
+### Block 9 — Scenes (DONE 2026-09-19)
+- [x] `Scene` (World + update/render + lifecycle) and `SceneManager`
+    (transitions); sandbox: MenuScene -> GameScene (maze), restart with R.
 
 ### Block 10 — Combat & gameplay
 - `Health`/damage, physics triggers/overlaps (enter/exit without blocking),
